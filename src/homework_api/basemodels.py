@@ -26,5 +26,4 @@ class removeHomework(BaseModel):
 
 class getHomeworks(BaseModel):
     classroom_secret: str
-    classroom_password: str
     count: int = 10

@@ -5,6 +5,7 @@ from databases import Database
 import re
 
 from homework_api import basemodels, utils
+from homework_api.error_response import ErrorResponse
 
 app = FastAPI()
 
@@ -33,8 +34,8 @@ async def startup():
                            Teacher TEXT NOT NULL,
                            Title TEXT NOT NULL,
                            Description TEXT NOT NULL,
-                           AssignedDate TEXT NOT NULL,
-                           DueDate TEXT NOT NULL
+                           AssignedDate DATE NOT NULL,
+                           DueDate DATE NOT NULL
                            )"""
     )
 
@@ -49,8 +50,6 @@ async def root():
     return {"message": "Hello World"}
 
 
-# make a new classroom: header = classroom name, password
-# output: classroom secret
 @app.post("/api/new_classroom")
 async def new_classroom(body: basemodels.newClassroom):
     classroom_name = body.classroom_name
@@ -64,21 +63,13 @@ async def new_classroom(body: basemodels.newClassroom):
         re.fullmatch(r".{3,10}", classroom_name) is None
         or re.search(r"[1-6]/[0-9]+", classroom_name) is None
     ):
-        return {
-            "response_code": 400,
-            "response": "CLASSROOM_INVALID",
-            "message": "Classroom name must be 3-10 characters long and in the format like '4/5....'",
-        }
+        return ErrorResponse.CLASSROOM_INVALID.value
 
     if (
         re.fullmatch(r".{5,}", classroom_password) is None
         or re.fullmatch(r"[a-zA-Z0-9]+", classroom_password) is None
     ):
-        return {
-            "response_code": 400,
-            "response": "PASSWORD_INVALID",
-            "message": "Classroom password must be at least 5 characters long and alphanumeric a-Z 0-9",
-        }
+        return ErrorResponse.PASSWORD_INVALID.value
 
     # classroom secret (username that use to login)
     classroom_secret = hashlib.sha256(
@@ -99,16 +90,19 @@ async def new_classroom(body: basemodels.newClassroom):
         },
     )
 
+    # _RETURN
     return {
         "response_code": 201,
-        "response": {"classroom_secret": classroom_secret},
-        "message": "Classroom created successfully",
+        "response": {
+            "context": {
+                "classroom_secret": classroom_secret,
+            },
+            "error": None,
+            "message": "Classroom created successfully",
+        },
     }
 
 
-# TODO: add headers
-# add a new homework: header = classroom secret, homework...
-# output: ok, id?
 @app.post("/api/add_homework")
 async def add_homework(body: basemodels.addHomework):
     classroom_secret = body.classroom_secret
@@ -144,18 +138,14 @@ async def add_homework(body: basemodels.addHomework):
     )
 
     if assigned_date is None:
-        assigned_date = time.strftime("%d-%m-%Y")
+        assigned_date = time.strftime("%Y-%m-%d")
 
     # check if assigned_date and due_date is in the correct format
     if (
         utils.check_valid_date(assigned_date) is False
         or utils.check_valid_date(due_date) is False
     ):
-        return {
-            "response_code": 400,
-            "response": "DATE_INVALID",
-            "message": "Assigned date or due date is invalid",
-        }
+        return ErrorResponse.DATE_INVALID.value
 
     classroom_password_encrypted = hashlib.sha256(
         classroom_password.encode("utf8")
@@ -168,11 +158,7 @@ async def add_homework(body: basemodels.addHomework):
     )
 
     if classroom_check is None:
-        return {
-            "response_code": 401,
-            "response": "SECRET_OR_PASSWORD_INVALID",
-            "message": "Classroom secret or password is invalid",
-        }
+        return ErrorResponse.SECRET_OR_PASSWORD_INVALID.value
 
     classroom_id = classroom_check["ClassroomID"]
 
@@ -191,10 +177,16 @@ async def add_homework(body: basemodels.addHomework):
         },
     )
 
+    # _RETURN
     return {
         "response_code": 201,
-        "response": {"homework_id": homework_id},
-        "message": "Homework added successfully",
+        "response": {
+            "context": {
+                "homework_id": homework_id,
+            },
+            "error": None,
+            "message": "Homework created successfully",
+        },
     }
 
 
@@ -222,11 +214,7 @@ async def remove_homework(body: basemodels.removeHomework):
     )
 
     if classroom_check is None:
-        return {
-            "response_code": 401,
-            "response": "SECRET_OR_PASSWORD_INVALID",
-            "message": "Classroom secret or password is invalid",
-        }
+        return ErrorResponse.SECRET_OR_PASSWORD_INVALID.value
 
     classroom_id = classroom_check["ClassroomID"]
 
@@ -237,11 +225,7 @@ async def remove_homework(body: basemodels.removeHomework):
     )
 
     if homework_check is None:
-        return {
-            "response_code": 404,
-            "response": "HOMEWORK_NOT_FOUND",
-            "message": "Homework not found",
-        }
+        return ErrorResponse.HOMEWORK_NOT_FOUND.value
 
     # delete homework
     await database.execute(
@@ -249,40 +233,35 @@ async def remove_homework(body: basemodels.removeHomework):
         {"homework_id": homework_id, "classroom_id": classroom_id},
     )
 
+    # _RETURN
     return {
         "response_code": 200,
-        "response": "OK",
-        "message": "Homework deleted successfully",
+        "response": {
+            "context": {
+                "deleted_homework_id": homework_id,
+            },
+            "error": None,
+            "message": "Homework deleted successfully",
+        },
     }
 
 
 @app.post("/api/get_homeworks")
 async def get_homeworks(body: basemodels.getHomeworks):
     classroom_secret = body.classroom_secret
-    classroom_password = body.classroom_password
     count = body.count
 
     # AGAIN??
-    (classroom_secret, classroom_password) = utils.normalize_strings(
-        [classroom_secret, classroom_password]
-    )
-
-    classroom_password_encrypted = hashlib.sha256(
-        classroom_password.encode("utf8")
-    ).hexdigest()
+    (classroom_secret) = utils.normalize_strings([classroom_secret])[0]
 
     # check if classroom secret and password is correct
     classroom_check = await database.fetch_one(
-        "SELECT * FROM classrooms WHERE ClassroomSecret = :secret AND ClassroomPassword = :password",
-        {"secret": classroom_secret, "password": classroom_password_encrypted},
+        "SELECT * FROM classrooms WHERE ClassroomSecret = :secret",
+        {"secret": classroom_secret},
     )
 
     if classroom_check is None:
-        return {
-            "response_code": 401,
-            "response": "SECRET_OR_PASSWORD_INVALID",
-            "message": "Classroom secret or password is invalid",
-        }
+        return ErrorResponse.SECRET_INVALID.value
 
     classroom_id = classroom_check["ClassroomID"]
 
@@ -292,18 +271,27 @@ async def get_homeworks(body: basemodels.getHomeworks):
         {"classroom_id": classroom_id, "count": count},
     )
 
-    homeworks_formatted = [{
-        "homework_id": homework["HomeworkID"],
-        "subject": homework["Subject"],
-        "teacher": homework["Teacher"],
-        "title": homework["Title"],
-        "description": homework["Description"],
-        "assigned_date": homework["AssignedDate"],
-        "due_date": homework["DueDate"]
-    } for homework in homeworks]
+    homeworks_formatted = [
+        {
+            "homework_id": homework["HomeworkID"],
+            "subject": homework["Subject"],
+            "teacher": homework["Teacher"],
+            "title": homework["Title"],
+            "description": homework["Description"],
+            "assigned_date": homework["AssignedDate"],
+            "due_date": homework["DueDate"],
+        }
+        for homework in homeworks
+    ]
 
+    # _RETURN
     return {
         "response_code": 200,
-        "response": homeworks_formatted,
-        "message": "Homeworks retrieved successfully",
+        "response": {
+            "context": {
+                "homeworks": homeworks_formatted,
+            },
+            "error": None,
+            "message": "Homeworks retrieved successfully",
+        },
     }

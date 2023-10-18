@@ -7,7 +7,7 @@ def normalize_strings(values: List[str]):
 
 def check_valid_date(date: str):
     try:
-        datetime.strptime(date, "%d-%m-%Y")
+        datetime.strptime(date, "%Y-%m-%d")
         return True
     except ValueError:
         return False
