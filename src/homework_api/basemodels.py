@@ -26,4 +26,9 @@ class removeHomework(BaseModel):
 
 class getHomeworks(BaseModel):
     classroom_secret: str
-    count: int = 10
+    count: Union[int, None] = None
+    page: Union[int, None] = None
+    assigned_before_date: Union[str, None] = None
+    assigned_after_date: Union[str, None] = None
+    due_before_date: Union[str, None] = None
+    due_after_date: Union[str, None] = None

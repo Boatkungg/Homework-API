@@ -52,11 +52,14 @@ async def root():
 
 @app.post("/api/new_classroom")
 async def new_classroom(body: basemodels.newClassroom):
-    classroom_name = body.classroom_name
-    classroom_password = body.classroom_password
-
-    classroom_name, classroom_password = utils.normalize_strings(
-        [classroom_name, classroom_password]
+    (
+        classroom_name,
+        classroom_password,
+    ) = utils.normalize_strings(
+        [
+            body.classroom_name,
+            body.classroom_password,
+        ]
     )
 
     if (
@@ -75,6 +78,7 @@ async def new_classroom(body: basemodels.newClassroom):
     classroom_secret = hashlib.sha256(
         (classroom_name + str(time.time())).encode("utf8")
     ).hexdigest()
+
     # classroom password
     classroom_password_encrypted = hashlib.sha256(
         classroom_password.encode("utf8")
@@ -82,7 +86,17 @@ async def new_classroom(body: basemodels.newClassroom):
 
     # insert into database
     await database.execute(
-        "INSERT INTO classrooms(ClassroomSecret, ClassroomPassword, ClassroomName) VALUES (:secret, :password, :name)",
+        """
+        INSERT INTO classrooms(
+            ClassroomSecret, 
+            ClassroomPassword, 
+            ClassroomName
+        ) VALUES (
+            :secret, 
+            :password, 
+            :name
+        )
+        """,
         {
             "secret": classroom_secret,
             "password": classroom_password_encrypted,
@@ -105,15 +119,6 @@ async def new_classroom(body: basemodels.newClassroom):
 
 @app.post("/api/add_homework")
 async def add_homework(body: basemodels.addHomework):
-    classroom_secret = body.classroom_secret
-    classroom_password = body.classroom_password
-    subject = body.subject
-    teacher = body.teacher
-    title = body.title
-    description = body.description
-    assigned_date = body.assigned_date
-    due_date = body.due_date
-
     # WTF
     (
         classroom_secret,
@@ -126,14 +131,14 @@ async def add_homework(body: basemodels.addHomework):
         due_date,
     ) = utils.normalize_strings(
         [
-            classroom_secret,
-            classroom_password,
-            subject,
-            teacher,
-            title,
-            description,
-            assigned_date,
-            due_date,
+            body.classroom_secret,
+            body.classroom_password,
+            body.subject,
+            body.teacher,
+            body.title,
+            body.description,
+            body.assigned_date,
+            body.due_date,
         ]
     )
 
@@ -153,7 +158,12 @@ async def add_homework(body: basemodels.addHomework):
 
     # check if classroom secret and password is correct
     classroom_check = await database.fetch_one(
-        "SELECT * FROM classrooms WHERE ClassroomSecret = :secret AND ClassroomPassword = :password",
+        """
+        SELECT * 
+        FROM classrooms 
+        WHERE ClassroomSecret = :secret 
+        AND ClassroomPassword = :password
+        """,
         {"secret": classroom_secret, "password": classroom_password_encrypted},
     )
 
@@ -164,8 +174,25 @@ async def add_homework(body: basemodels.addHomework):
 
     # insert into database
     homework_id = await database.execute(
-        """INSERT INTO homeworks(ClassroomID, Subject, Teacher, Title, Description, AssignedDate, DueDate) 
-        VALUES (:classroom_id, :subject, :teacher, :title, :description, :assigned_date, :due_date)""",
+        """
+        INSERT INTO homeworks(
+            ClassroomID, 
+            Subject, 
+            Teacher, 
+            Title, 
+            Description, 
+            AssignedDate, 
+            DueDate
+        ) VALUES (
+            :classroom_id, 
+            :subject, 
+            :teacher, 
+            :title, 
+            :description, 
+            :assigned_date, 
+            :due_date
+        )
+        """,
         {
             "classroom_id": classroom_id,
             "subject": subject,
@@ -192,16 +219,18 @@ async def add_homework(body: basemodels.addHomework):
 
 @app.post("/api/remove_homework")
 async def remove_homework(body: basemodels.removeHomework):
-    classroom_secret = body.classroom_secret
-    classroom_password = body.classroom_password
     homework_id = body.homework_id
 
     # AGAIN??
     (
         classroom_secret,
         classroom_password,
-        homework_id,
-    ) = utils.normalize_strings([classroom_secret, classroom_password, homework_id])
+    ) = utils.normalize_strings(
+        [
+            body.classroom_secret,
+            body.classroom_password,
+        ]
+    )
 
     classroom_password_encrypted = hashlib.sha256(
         classroom_password.encode("utf8")
@@ -209,7 +238,12 @@ async def remove_homework(body: basemodels.removeHomework):
 
     # check if classroom secret and password is correct
     classroom_check = await database.fetch_one(
-        "SELECT * FROM classrooms WHERE ClassroomSecret = :secret AND ClassroomPassword = :password",
+        """
+        SELECT * 
+        FROM classrooms 
+        WHERE ClassroomSecret = :secret 
+        AND ClassroomPassword = :password
+        """,
         {"secret": classroom_secret, "password": classroom_password_encrypted},
     )
 
@@ -220,7 +254,12 @@ async def remove_homework(body: basemodels.removeHomework):
 
     # check if homework exists
     homework_check = await database.fetch_one(
-        "SELECT * FROM homeworks WHERE HomeworkID = :homework_id AND ClassroomID = :classroom_id",
+        """
+        SELECT * 
+        FROM homeworks 
+        WHERE HomeworkID = :homework_id 
+        AND ClassroomID = :classroom_id
+        """,
         {"homework_id": homework_id, "classroom_id": classroom_id},
     )
 
@@ -229,7 +268,11 @@ async def remove_homework(body: basemodels.removeHomework):
 
     # delete homework
     await database.execute(
-        "DELETE FROM homeworks WHERE HomeworkID = :homework_id AND ClassroomID = :classroom_id",
+        """
+        DELETE FROM homeworks 
+        WHERE HomeworkID = :homework_id 
+        AND ClassroomID = :classroom_id
+        """,
         {"homework_id": homework_id, "classroom_id": classroom_id},
     )
 
@@ -248,11 +291,48 @@ async def remove_homework(body: basemodels.removeHomework):
 
 @app.post("/api/get_homeworks")
 async def get_homeworks(body: basemodels.getHomeworks):
-    classroom_secret = body.classroom_secret
-    count = body.count
+    count = body.count or 10
+    page = body.page or 1  # But will be 0 in the query if its 1
 
-    # AGAIN??
-    (classroom_secret) = utils.normalize_strings([classroom_secret])[0]
+    if count > 50:
+        return ErrorResponse.TOO_MUCH_COUNT.value
+
+    # Normalize strings
+    (
+        classroom_secret,
+        assigned_before_date,
+        assigned_after_date,
+        due_before_date,
+        due_after_date,
+    ) = utils.normalize_strings(
+        [
+            body.classroom_secret,
+            body.assigned_before_date,
+            body.assigned_after_date,
+            body.due_before_date,
+            body.due_after_date,
+        ],
+    )
+
+    # Check if assigned_date and due_date is in the correct format
+    date_fields = [
+        assigned_before_date,
+        assigned_after_date,
+        due_before_date,
+        due_after_date,
+    ]
+
+    if any(
+        utils.check_valid_date(date) is False
+        for date in date_fields
+        if date is not None
+    ):
+        return ErrorResponse.DATE_INVALID.value
+
+    use_assigned_before_date = assigned_before_date is not None
+    use_assigned_after_date = assigned_after_date is not None
+    use_due_before_date = due_before_date is not None
+    use_due_after_date = due_after_date is not None
 
     # check if classroom secret and password is correct
     classroom_check = await database.fetch_one(
@@ -265,11 +345,55 @@ async def get_homeworks(body: basemodels.getHomeworks):
 
     classroom_id = classroom_check["ClassroomID"]
 
+    # queries
+    query = f"""
+            SELECT * FROM homeworks 
+            WHERE ClassroomID = :classroom_id 
+            {
+                'AND AssignedDate <= :assigned_before_date' 
+                if use_assigned_before_date 
+                else ''
+            }
+            {
+                'AND AssignedDate >= :assigned_after_date'
+                if use_assigned_after_date 
+                else ''
+            }
+            {
+                'AND DueDate <= :due_before_date'
+                if use_due_before_date 
+                else ''
+            }
+            {
+                'AND DueDate >= :due_after_date'
+                if use_due_after_date 
+                else ''
+            }
+            ORDER BY HomeworkID DESC
+            LIMIT :count
+            OFFSET :offset
+            """
+
+    query_dict = {
+        "classroom_id": classroom_id,
+        "count": count,
+        "offset": (page - 1) * count,
+    }
+
+    if use_assigned_before_date:
+        query_dict["assigned_before_date"] = assigned_before_date
+
+    if use_assigned_after_date:
+        query_dict["assigned_after_date"] = assigned_after_date
+
+    if use_due_before_date:
+        query_dict["due_before_date"] = due_before_date
+
+    if use_due_after_date:
+        query_dict["due_after_date"] = due_after_date
+
     # get homeworks
-    homeworks = await database.fetch_all(
-        "SELECT * FROM homeworks WHERE ClassroomID = :classroom_id ORDER BY HomeworkID DESC LIMIT :count",
-        {"classroom_id": classroom_id, "count": count},
-    )
+    homeworks = await database.fetch_all(query, query_dict)
 
     homeworks_formatted = [
         {
@@ -290,6 +414,7 @@ async def get_homeworks(body: basemodels.getHomeworks):
         "response": {
             "context": {
                 "homeworks": homeworks_formatted,
+                "page": page,
             },
             "error": None,
             "message": "Homeworks retrieved successfully",

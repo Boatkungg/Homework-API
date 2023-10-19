@@ -49,3 +49,11 @@ class ErrorResponse(Enum):
             "message": "Homework not found",
         },
     }
+
+    TOO_MUCH_COUNT = {
+        "response_code": 400,
+        "response": {
+            "error": "TOO_MUCH_COUNT",
+            "message": "Count must be less than 50",
+        },
+    }
