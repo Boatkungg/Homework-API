@@ -1,8 +1,9 @@
-from fastapi import FastAPI
-import hashlib
-import time
-from databases import Database
 import re
+import time
+import hashlib
+
+from fastapi import FastAPI
+from databases import Database
 
 from homework_api import basemodels, utils
 from homework_api.error_response import ErrorResponse

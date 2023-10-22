@@ -1,6 +1,6 @@
 from typing import Union
-
 from pydantic import BaseModel
+
 
 class newClassroom(BaseModel):
     classroom_name: str
