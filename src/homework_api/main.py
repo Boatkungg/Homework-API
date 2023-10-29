@@ -173,6 +173,25 @@ async def add_homework(body: basemodels.addHomework):
 
     classroom_id = classroom_check["ClassroomID"]
 
+    if teacher is None:
+        teacher_check = await database.fetch_one(
+            """
+            SELECT *
+            FROM homeworks
+            WHERE ClassroomID = :classroom_id
+            AND Subject = :subject
+            AND Teacher IS NOT NULL
+            ORDER BY HomeworkID DESC
+            LIMIT 1
+            """,
+            {"classroom_id": classroom_id, "subject": subject},
+        )
+
+        if teacher_check is None:
+            return ErrorResponse.NO_TEACHER.value
+
+        teacher = teacher_check["Teacher"]
+
     # insert into database
     homework_id = await database.execute(
         """

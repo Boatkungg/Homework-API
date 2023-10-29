@@ -42,6 +42,14 @@ class ErrorResponse(Enum):
         },
     }
 
+    NO_TEACHER = {
+        "response_code": 400,
+        "response": {
+            "error": "NO_TEACHER",
+            "message": "Teacher must be specified",
+        },
+    }
+
     HOMEWORK_NOT_FOUND = {
         "response_code": 404,
         "response": {
