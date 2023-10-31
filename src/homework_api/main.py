@@ -1,9 +1,10 @@
+import hashlib
+import math
 import re
 import time
-import hashlib
 
-from fastapi import FastAPI
 from databases import Database
+from fastapi import FastAPI
 
 from homework_api import basemodels, utils
 from homework_api.error_response import ErrorResponse
@@ -354,7 +355,7 @@ async def get_homeworks(body: basemodels.getHomeworks):
     use_due_before_date = due_before_date is not None
     use_due_after_date = due_after_date is not None
 
-    # check if classroom secret and password is correct
+    # check if classroom secret is correct
     classroom_check = await database.fetch_one(
         "SELECT * FROM classrooms WHERE ClassroomSecret = :secret",
         {"secret": classroom_secret},
@@ -438,5 +439,119 @@ async def get_homeworks(body: basemodels.getHomeworks):
             },
             "error": None,
             "message": "Homeworks retrieved successfully",
+        },
+    }
+
+@app.post("/api/get_page_count")
+async def get_page_count(body: basemodels.getPageCount):
+    count = body.count or 10
+
+    if count > 50:
+        return ErrorResponse.TOO_MUCH_COUNT.value
+
+    # Normalize strings
+    (
+        classroom_secret,
+        assigned_before_date,
+        assigned_after_date,
+        due_before_date,
+        due_after_date,
+    ) = utils.normalize_strings(
+        [
+            body.classroom_secret,
+            body.assigned_before_date,
+            body.assigned_after_date,
+            body.due_before_date,
+            body.due_after_date,
+        ],
+    )
+
+    # Check if assigned_date and due_date is in the correct format
+    date_fields = [
+        assigned_before_date,
+        assigned_after_date,
+        due_before_date,
+        due_after_date,
+    ]
+
+    if any(
+        utils.check_valid_date(date) is False
+        for date in date_fields
+        if date is not None
+    ):
+        return ErrorResponse.DATE_INVALID.value
+
+    use_assigned_before_date = assigned_before_date is not None
+    use_assigned_after_date = assigned_after_date is not None
+    use_due_before_date = due_before_date is not None
+    use_due_after_date = due_after_date is not None
+
+    # check if classroom secret is correct
+    classroom_check = await database.fetch_one(
+        "SELECT * FROM classrooms WHERE ClassroomSecret = :secret",
+        {"secret": classroom_secret},
+    )
+
+    if classroom_check is None:
+        return ErrorResponse.SECRET_INVALID.value
+
+    classroom_id = classroom_check["ClassroomID"]
+
+    # queries
+    query = f"""
+            SELECT COUNT(HomeworkID) FROM homeworks 
+            WHERE ClassroomID = :classroom_id 
+            {
+                'AND AssignedDate <= :assigned_before_date' 
+                if use_assigned_before_date 
+                else ''
+            }
+            {
+                'AND AssignedDate >= :assigned_after_date'
+                if use_assigned_after_date 
+                else ''
+            }
+            {
+                'AND DueDate <= :due_before_date'
+                if use_due_before_date 
+                else ''
+            }
+            {
+                'AND DueDate >= :due_after_date'
+                if use_due_after_date 
+                else ''
+            }
+            """
+
+    query_dict = {
+        "classroom_id": classroom_id,
+    }
+
+    if use_assigned_before_date:
+        query_dict["assigned_before_date"] = assigned_before_date
+
+    if use_assigned_after_date:
+        query_dict["assigned_after_date"] = assigned_after_date
+
+    if use_due_before_date:
+        query_dict["due_before_date"] = due_before_date
+
+    if use_due_after_date:
+        query_dict["due_after_date"] = due_after_date
+
+    # get homeworks
+    homework_count = await database.fetch_one(query, query_dict)
+
+    pages = math.ceil(homework_count["COUNT(HomeworkID)"] / count)
+
+    # _RETURN
+    return {
+        "response_code": 200,
+        "response": {
+            "context": {
+                "pages": pages,
+            },
+            "error": None,
+            "message": "Homework count retrieved successfully",
         },
     }
