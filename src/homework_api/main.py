@@ -11,7 +11,7 @@ from homework_api.error_response import ErrorResponse
 
 app = FastAPI()
 
-database = Database("sqlite:///database.db", force_rollback=True)
+database = Database("sqlite:///database.db", force_rollback=False)
 
 
 @app.on_event("startup")
@@ -429,6 +429,39 @@ async def get_homeworks(body: basemodels.getHomeworks):
         for homework in homeworks
     ]
 
+    # get count of homeworks
+    query_2 = f"""
+            SELECT COUNT(HomeworkID)
+            FROM homeworks
+            WHERE ClassroomID = :classroom_id
+            {
+                'AND AssignedDate <= :assigned_before_date' 
+                if use_assigned_before_date 
+                else ''
+            }
+            {
+                'AND AssignedDate >= :assigned_after_date'
+                if use_assigned_after_date 
+                else ''
+            }
+            {
+                'AND DueDate <= :due_before_date'
+                if use_due_before_date 
+                else ''
+            }
+            {
+                'AND DueDate >= :due_after_date'
+                if use_due_after_date 
+                else ''
+            }
+            """
+    query_dict.pop("count")
+    query_dict.pop("offset")
+    
+    homework_count = await database.fetch_one(query_2, query_dict)
+
+    homeworks_page = math.ceil(homework_count["COUNT(HomeworkID)"] / count)
+
     # _RETURN
     return {
         "response_code": 200,
@@ -436,11 +469,13 @@ async def get_homeworks(body: basemodels.getHomeworks):
             "context": {
                 "homeworks": homeworks_formatted,
                 "page": page,
+                "max_page": homeworks_page,
             },
             "error": None,
             "message": "Homeworks retrieved successfully",
         },
     }
+
 
 @app.post("/api/get_page_count")
 async def get_page_count(body: basemodels.getPageCount):
