@@ -2,9 +2,10 @@ from typing import Optional
 
 from databases import Database
 
+
 class DB:
     def __init__(self, db_path: str, force_rollback: bool = False):
-        self.database = Database(db_path)
+        self.database = Database(db_path, force_rollback=force_rollback)
         self.connected = False
 
     async def connect(self):
@@ -15,7 +16,7 @@ class DB:
 
     async def disconnect(self):
         assert self.connected, "database should be connect first via .connect()"
-        
+
         await self.database.disconnect()
         self.connected = False
 
@@ -33,5 +34,3 @@ class DB:
         assert self.connected, "database should be connect first via .connect()"
 
         return await self.database.fetch_all(query=query, values=values)
-
-    

@@ -24,7 +24,7 @@ class removeHomework(BaseModel):
     homework_id: int
 
 
-class getHomeworks(BaseModel):
+class listHomeworks(BaseModel):
     classroom_secret: str
     count: Union[int, None] = None
     page: Union[int, None] = None

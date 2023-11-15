@@ -1,20 +1,27 @@
-from typing import List, Union
 from datetime import datetime
+from typing import Dict, List, Union
+
 from markupsafe import Markup
 
 
-def normalize_strings(values: List[Union[str, None]]):
-    return [
-        Markup(value).striptags() if value is not None else None for value in values
-    ]
+def cleanse_api_body(values: Dict[str, any]):
+    return {
+        key: Markup(value).striptags() if isinstance(value, str) else value
+        for key, value in values.items()
+    }
 
 
-def check_valid_date(date: Union[str, None]):
-    if date is None:
-        return True
+def check_valid_dates(dates: List[Union[str, None]]):
+    valids = []
+    for date in dates:
+        if date is None:
+            valids.append(True)
+            continue
 
-    try:
-        datetime.strptime(date, "%Y-%m-%d")
-        return True
-    except ValueError:
-        return False
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+            valids.append(True)
+        except ValueError:
+            valids.append(False)
+
+    return all(valids)
