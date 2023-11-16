@@ -218,7 +218,7 @@ async def get_homework(body: basemodels.getHomework):
 
     homework = await db_operations.get_homework(classroom_conn, classroom_id, cleaned_body["homework_id"])
 
-    if homework_check is None:
+    if homework is None:
         return ErrorResponse.HOMEWORK_NOT_FOUND.value
     
     return {
