@@ -38,7 +38,7 @@ async def add_homework(body: basemodels.addHomework):
 
     classroom_id = classroom_check["ClassroomID"]
 
-    if teacher is None:
+    if cleaned_body["teacher"] is None:
         teacher_check = await db_operations.get_teacher(
             classroom_conn, classroom_id, cleaned_body["subject"]
         )
@@ -46,14 +46,14 @@ async def add_homework(body: basemodels.addHomework):
         if teacher_check is None:
             return ErrorResponse.NO_TEACHER.value
 
-        teacher = teacher_check["Teacher"]
+        cleaned_body["teacher"] = teacher_check["Teacher"]
 
     # insert into database
     homework_id = await db_operations.add_homework(
         classroom_conn,
         classroom_id,
         cleaned_body["subject"],
-        teacher,
+        cleaned_body["teacher"],
         cleaned_body["title"],
         cleaned_body["description"],
         cleaned_body["assigned_date"],
@@ -216,11 +216,13 @@ async def get_homework(body: basemodels.getHomework):
 
     classroom_id = classroom_check["ClassroomID"]
 
-    homework = await db_operations.get_homework(classroom_conn, classroom_id, cleaned_body["homework_id"])
+    homework = await db_operations.get_homework(
+        classroom_conn, classroom_id, cleaned_body["homework_id"]
+    )
 
     if homework is None:
         return ErrorResponse.HOMEWORK_NOT_FOUND.value
-    
+
     return {
         "response_code": 200,
         "response": {
