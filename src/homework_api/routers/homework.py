@@ -201,3 +201,39 @@ async def list_homeworks(body: basemodels.listHomeworks):
             "message": "Homeworks retrieved successfully",
         },
     }
+
+
+@router.post("/get")
+async def get_homework(body: basemodels.getHomework):
+    cleaned_body = utils.cleanse_api_body(body.model_dump())
+
+    classroom_check = await db_operations.get_classroom_no_password(
+        classroom_conn, cleaned_body["classroom_secret"]
+    )
+
+    if classroom_check is None:
+        return ErrorResponse.SECRET_INVALID.value
+
+    classroom_id = classroom_check["ClassroomID"]
+
+    homework = await db_operations.get_homework(classroom_conn, classroom_id, cleaned_body["homework_id"])
+
+    if homework_check is None:
+        return ErrorResponse.HOMEWORK_NOT_FOUND.value
+    
+    return {
+        "response_code": 200,
+        "response": {
+            "context": {
+                "homework_id": homework["HomeworkID"],
+                "subject": homework["Subject"],
+                "teacher": homework["Teacher"],
+                "title": homework["Title"],
+                "description": homework["Description"],
+                "assigned_date": homework["AssignedDate"],
+                "due_date": homework["DueDate"],
+            },
+            "error": None,
+            "message": "Homework retrieved successfully",
+        },
+    }

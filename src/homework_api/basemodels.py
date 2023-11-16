@@ -34,10 +34,6 @@ class listHomeworks(BaseModel):
     due_after_date: Union[str, None] = None
 
 
-class getPageCount(BaseModel):
+class getHomework(BaseModel):
     classroom_secret: str
-    count: Union[int, None] = None
-    assigned_before_date: Union[str, None] = None
-    assigned_after_date: Union[str, None] = None
-    due_before_date: Union[str, None] = None
-    due_after_date: Union[str, None] = None
+    homework_id: str
