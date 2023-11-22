@@ -15,6 +15,8 @@ router = APIRouter(prefix="/homework", tags=["homework"])
 async def add_homework(body: basemodels.addHomework):
     cleaned_body = utils.cleanse_api_body(body.model_dump())
 
+    cleaned_body["description"] = cleaned_body["description"] or ""
+
     if cleaned_body["assigned_date"] is None:
         cleaned_body["assigned_date"] = time.strftime("%Y-%m-%d")
 
