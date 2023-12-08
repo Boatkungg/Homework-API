@@ -240,3 +240,23 @@ async def remove_homework(db, classroom_id, homework_id):
         """,
         {"homework_id": homework_id, "classroom_id": classroom_id},
     )
+
+
+async def get_statistics(
+    db, classroom_id, subject, assigned_before_date, assigned_after_date
+):
+    return await db.fetch_all(
+        """
+        SELECT AssignedDate FROM homeworks
+        WHERE ClassroomID = :classroom_id
+        AND Subject = :subject
+        AND AssignedDate <= :assigned_before_date
+        AND AssignedDate >= :assigned_after_date
+        """,
+        {
+            "classroom_id": classroom_id,
+            "subject": subject,
+            "assigned_before_date": assigned_before_date,
+            "assigned_after_date": assigned_after_date,
+        },
+    )

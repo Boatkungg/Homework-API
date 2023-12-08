@@ -1,6 +1,7 @@
 import hashlib
 import math
 import time
+from collections import Counter
 
 from fastapi import APIRouter
 
@@ -239,5 +240,48 @@ async def get_homework(body: basemodels.getHomework):
             },
             "error": None,
             "message": "Homework retrieved successfully",
+        },
+    }
+
+
+@router.post("/statistics")
+async def statistics_homework(body: basemodels.statisticsHomework):
+    cleaned_body = utils.cleanse_api_body(body.model_dump())
+
+    if not utils.check_valid_dates(
+        [cleaned_body["assigned_before_date"], cleaned_body["assigned_after_date"]]
+    ):
+        return ErrorResponse.DATE_INVALID.value
+
+    classroom_check = await db_operations.get_classroom_no_password(
+        classroom_conn, cleaned_body["classroom_secret"]
+    )
+
+    if classroom_check is None:
+        return ErrorResponse.SECRET_INVALID.value
+
+    classroom_id = classroom_check["ClassroomID"]
+
+    assigned_dates = await db_operations.get_statistics(
+        classroom_conn,
+        classroom_id,
+        cleaned_body["subject"],
+        cleaned_body["assigned_before_date"],
+        cleaned_body["assigned_after_date"],
+    )
+
+    if assigned_dates is None:
+        return ErrorResponse.NO_STATISTICS.value
+
+    formatted_dates = [date["AssignedDate"] for date in assigned_dates]
+
+    print(dict(Counter(formatted_dates)))
+
+    return {
+        "response_code": 200,
+        "response": {
+            "context": dict(Counter(formatted_dates)),
+            "error": None,
+            "message": "Statistics retrieved successfully",
         },
     }

@@ -1,4 +1,5 @@
 from typing import Union
+
 from pydantic import BaseModel
 
 
@@ -37,3 +38,10 @@ class listHomeworks(BaseModel):
 class getHomework(BaseModel):
     classroom_secret: str
     homework_id: str
+
+
+class statisticsHomework(BaseModel):
+    classroom_secret: str
+    subject: str
+    assigned_before_date: str
+    assigned_after_date: str

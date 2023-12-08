@@ -65,3 +65,11 @@ class ErrorResponse(Enum):
             "message": "Count must be less than 50",
         },
     }
+
+    NO_STATISTICS = {
+        "response_code": 400,
+        "response": {
+            "error": "NO_STATISTICS",
+            "message": "No statistics available",
+        },
+    }
