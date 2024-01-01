@@ -243,20 +243,23 @@ async def remove_homework(db, classroom_id, homework_id):
 
 
 async def get_statistics(
-    db, classroom_id, subject, assigned_before_date, assigned_after_date
+    db, classroom_id, assigned_before_date, assigned_after_date, subject=None
 ):
-    return await db.fetch_all(
-        """
-        SELECT AssignedDate FROM homeworks
-        WHERE ClassroomID = :classroom_id
-        AND Subject = :subject
-        AND AssignedDate <= :assigned_before_date
-        AND AssignedDate >= :assigned_after_date
-        """,
-        {
-            "classroom_id": classroom_id,
-            "subject": subject,
-            "assigned_before_date": assigned_before_date,
-            "assigned_after_date": assigned_after_date,
-        },
-    )
+    query = f"""
+            SELECT AssignedDate FROM homeworks 
+            WHERE ClassroomID = :classroom_id 
+            AND AssignedDate <= :assigned_before_date
+            AND AssignedDate >= :assigned_after_date
+            {'AND Subject = :subject' if subject else ''}
+            """
+
+    query_dict = {
+        "classroom_id": classroom_id,
+        "assigned_before_date": assigned_before_date,
+        "assigned_after_date": assigned_after_date,
+    }
+
+    if subject:
+        query_dict["subject"] = subject
+
+    return await db.fetch_all(query, query_dict)

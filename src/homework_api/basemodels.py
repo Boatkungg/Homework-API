@@ -42,6 +42,6 @@ class getHomework(BaseModel):
 
 class statisticsHomework(BaseModel):
     classroom_secret: str
-    subject: str
     assigned_before_date: str
     assigned_after_date: str
+    subject: Union[str, None] = None

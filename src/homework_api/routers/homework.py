@@ -265,9 +265,9 @@ async def statistics_homework(body: basemodels.statisticsHomework):
     assigned_dates = await db_operations.get_statistics(
         classroom_conn,
         classroom_id,
-        cleaned_body["subject"],
         cleaned_body["assigned_before_date"],
         cleaned_body["assigned_after_date"],
+        cleaned_body["subject"],
     )
 
     if assigned_dates is None:
